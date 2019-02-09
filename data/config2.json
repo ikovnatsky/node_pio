@@ -1,0 +1,20 @@
+{
+    "lorahf_beacons":[{"lon":23,"lat":25,"z":10,"id":1234},
+                      {"lon":23.2,"lat":125,"z":11,"id":1234}
+                      ],
+    "hfDelayCal":13000,
+    "bands":[915000000],
+    "role":"NODE",
+    "rangingAddress2":839909376,
+    "rangingAddress":10,
+    "assetName1":"Lady",
+    "assetName2":"Gaga",
+    "zoneOffset":-5,
+    "rangeTrys":1,
+    "rangeReps":2,
+    "rangeNumBeacons":3,
+    "configMinHdop":10,
+    "configPWD":"smarttag",
+    "configSSID":"GW1"
+
+    }

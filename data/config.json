@@ -1,0 +1,22 @@
+{
+    "lorahf_beacons":[{"lon":23,"lat":25,"z":10,"id":13},
+                      {"lon":23.2,"lat":125,"z":11,"id":1234}
+                      ],
+    "hfDelayCal":13000,
+    "bands":[915000000],
+    "role":"NODE",
+    "rangingAddress2":839909376,
+    "rangingAddress":10,
+    "assetName1":"Don",
+    "assetName2":"Trump",
+    "zoneOffset":-5,
+    "rangeTrys":2,
+    "rangeReps":5,
+    "rangeNumBeacons":3,
+    "configMinHdop":1,
+    "configPWDA":"smarttag",
+    "configSSIDA":"GW1",
+    "configPWD":"180158234D",
+    "configSSID":"5YSF3",
+    "configRefresh":2
+    }

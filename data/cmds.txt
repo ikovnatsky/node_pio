@@ -1,0 +1,11 @@
+curl -X POST -F "data=@edit.htm"     http://192.168.3.119/edit >/dev/null
+ *  curl -X POST -F "data=@graphs.js.gz"  http://<ESP32 IP address>/edit >/dev/null
+ *  curl -X POST -F "data=@favicon.ico"   http://<ESP32 IP address>/edit >/dev/null
+ *  curl -X POST -F "data=@edit.htm.gz"   http://<ESP32 IP address>/edit >/dev/null
+
+ https://esp32.com/viewtopic.php?f=2&t=5488
+ IDF_PATH/components/esptool_py/esptool/esptool.py --port com3 erase_region 0xd000 0x2000
+
+ TASK_WDT_PANIC
+
+ http://sdr.osmocom.org/trac/wiki/rtl-sdr

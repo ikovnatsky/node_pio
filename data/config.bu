@@ -1,0 +1,16 @@
+{
+    "lorahf_beacons":[{"lon":23,"lat":25,"z":10,"id":1234},
+                      {"lon":23.2,"lat":125,"z":11,"id":1234}
+                      ],
+    "hfDelayCal":13000,
+    "bands":[915000000],
+    "role":"NODE",
+    "rangingAddress":839909376,
+    "assetName1":"Empty",
+    "assetName2":"1",
+    "zoneOffset":-5,
+    "rangeTrys":1,
+    "rangeReps":2,
+    "rangeNumBeacons":3,
+    "configMinHdop":10
+    }

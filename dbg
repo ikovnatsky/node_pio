@@ -1,0 +1,18 @@
+
+export PATH=/home/me/bin:/home/me/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/home/me/.platformio/packages/toolchain-xtensa32/bin:/home/me/.platformio/packages/toolchain-xtensa32/bin
+
+~/.platformio/packages/framework-espidf/components/esptool_py/esptool/esptool.py --port /dev/ttyUSB0 erase_region  0x150000 0x100000
+
+esptool.py --port COM4 write_flash 0x1000 my_app-0x01000.bin
+
+~/.platformio/packages/framework-espidf/tools/idf_monitor.py  --port /dev/ttyUSB0 firmware.elf 
+
+{
+"gwId":12,
+"configPWD":"55aa55aa55",
+"configSSID":"PTG",
+"configMQTTServer":"18.220.173.127"
+}
+    "zoneOffset":-5,
+    "configPWD":"smarttag",
+    "configSSID":"GW1",
