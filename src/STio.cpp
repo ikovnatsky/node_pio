@@ -34,10 +34,13 @@ uint8_t IOreadRegister(const uint8_t register_addr) {
     //call sensor by address
     //call registers
     uint8_t data = 0;
+    WireTake();
 
     Wire.beginTransmission(EXPANDER_ADDRESS); 
     Wire.write(register_addr); 
-    Wire.endTransmission(); 
+    int error= Wire.endTransmission();
+   if (error)
+    printf("IO error read reg %d \n",error);
 
     Wire.requestFrom((int)EXPANDER_ADDRESS, 1);
 
@@ -45,9 +48,18 @@ uint8_t IOreadRegister(const uint8_t register_addr) {
         data = Wire.read();    // receive a byte as character
     }
 
+     WireGive();
     return data; //return the data returned from the register
 }
 
+uint8_t IOIntReset(void)
+{
+uint8_t v;
+v= IOreadRegister(TCA6408A_INPUT);
+IOwriteRegister(TCA6408A_INPUT,v);
+
+return (v);
+}
 
 uint8_t IOreadRegister2(const uint8_t register_addr) {
     //call sensor by address
@@ -109,3 +121,4 @@ void STdigitalWrite(uint8_t a, uint8_t v)
             printf("Set val = %x\n",set_val);
     }
 }
+

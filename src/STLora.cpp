@@ -90,6 +90,7 @@ void STLora::SetPowerMode(uint8_t mode)
 {
    SleepParams_t sleepConfig;
   // return;
+  printf("Lore power mode setting %d\n",mode);
   sched.spi_take(10,10,"set sleep");
   if (mode ==POWER_OFF_RETAIN)
   {
@@ -101,8 +102,12 @@ void STLora::SetPowerMode(uint8_t mode)
   }
 if (mode ==POWER_ON)
   {
+        int attempts=3;
+
         mode_rx=0;
         //wake it up
+        RadioNssSet(0);
+        RadioNssSet(1);
         RadioNssSet(0);
         delay(1);
         SetStandby( STDBY_RC );
@@ -110,10 +115,15 @@ if (mode ==POWER_ON)
         digitalWrite(RXEN,HIGH);
         RadioStatus_t  rStat;
 
+        while(attempts--)
+        {
         rStat = GetStatus();
+        if (rStat.Fields.ChipMode==2)
+           break;
+        }
         // make sure the radio woke up
         if (rStat.Fields.ChipMode!=2)
-           printf("Error waking up\n");
+           printf("Error waking up  %d\n",rStat.Fields.ChipMode);
        // printf("After sleep mode = %d:stat %d\n",rStat.Fields.ChipMode,rStat.Fields.CmdStatus);
   }
   sched.spi_give();
@@ -151,7 +161,7 @@ PacketStatus_t pktStatus;
         GetPacketStatus( &pktStatus );
         pkt->SNR = pktStatus.Params.LoRa.SnrPkt;
         pkt->rssi=pktStatus.Params.LoRa.RssiPkt;
-        printf("Got a packet  %x  %d\n",iStat,len);
+       // printf("Got a packet  %x  %d\n",iStat,len);
         ClearIrqStatus(IRQ_RX_DONE|IRQ_PREAMBLE_DETECTED|IRQ_CRC_ERROR);
         sched.spi_give();
         if ((iStat&IRQ_CRC_ERROR)==0)
@@ -169,18 +179,25 @@ PacketStatus_t pktStatus;
     
      if (mode_rx==0)
       {
+        int attempts=10;
         mode_rx=1;
         digitalWrite(TXEN,LOW);
         digitalWrite(RXEN,HIGH);
         SetRx(0xffffff);
 //        printf("\nSwitching Mode \nstat %x %x irq %x\n",rStat.Fields.ChipMode,rStat.Fields.CmdStatus,iStat);
+/* this needs to be investigated
+        while (attempts--)
+        {
         rStat = GetStatus();
-        printf("After switch mode = %d:stat %d\n",rStat.Fields.ChipMode,rStat.Fields.CmdStatus);
-
-//        printf("stat After%x %x  %x\n",rStat.Fields.ChipMode,rStat.Fields.CmdStatus,iStat);
+         if (rStat.Fields.ChipMode==5)
+            break;
+          SetRx(0xffffff);
+        }
+       if (rStat.Fields.ChipMode!=5)
+          printf("Status Error after setting r%x %x  %x\n",rStat.Fields.ChipMode,rStat.Fields.CmdStatus,iStat);
+  */
       }
-       sched.spi_give();
-
+    sched.spi_give();
     return 0;
 }
 void  STLora::LoraPrepSend(LORA_PKT *pkt)

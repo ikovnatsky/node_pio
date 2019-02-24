@@ -6,6 +6,10 @@
 #include "soc/rtc.h"
 #include "soc/rtc_cntl_reg.h"
 
+#include "STGps.h"
+
+extern STGps gps;
+
 #ifdef INTERNAL_160
 #define TOMS(x) (x/160)
 #define TORTC(x) (x*160)
@@ -119,9 +123,11 @@ void SMScheduler:: UpdateDisplay()
 
 void SMScheduler::light_sleep(int time_ms)
 {
-    if (can_sleep==0)
+
+
+    if (uxSemaphoreGetCount(sleep_sem)>0)
        {
-        printf("Sorry Cant sleep\n");
+        printf("[SL]Sorry Cant sleep %x\n",bf_store);
        return;
        }
     //printf("Enter light sleep\n");
@@ -134,9 +140,10 @@ void SMScheduler::light_sleep(int time_ms)
     esp_light_sleep_start();
     wire_give();
     time_ms-= min(time_ms,MAX_SLEEP/1000);
-    if (can_sleep==0)
+    if (uxSemaphoreGetCount(sleep_sem)>0)
        return;
-    
+    if ( disp_request)
+      UpdateDisplay();
     //printf("Timeleft %d\n",time_ms);
     }
     //printf("Done\n");
@@ -151,7 +158,10 @@ xSemaphoreTake(user_sem_done,1);
 int SMScheduler::WaitEventTime(TaskHandle_t  taskId)
 {
   // should be implemented with an rtos wait
+   if (uxSemaphoreGetCount(sleep_sem)!=0)
+        printf("[SL]Sorry Cant sleep %x\n",bf_store);
 
+in_wait=1;
 while(1)
 {
   //if ( ((ev_time-GetTick())>MIN_DISP) && disp_request)
@@ -165,12 +175,11 @@ while(1)
       {
         int sleeptime = ev_time-GetTick()-4;
         uint64_t now;
-        //int mnow=millis();
         now=rtc_time_get();
         sleeptime=(sleeptime) *1000;
         //printf("light_sleep enter: %d %d\n",sleeptime,clock());
         DoUI();   
-        if (can_sleep)
+        if (uxSemaphoreGetCount(sleep_sem)==0)
            {
            esp_sleep_enable_timer_wakeup(min(sleeptime,MAX_SLEEP)); 
            taskYIELD();
@@ -201,21 +210,24 @@ while(1)
   break;
    
 }
-  while(EventExpired()==0);  
+int to=1000000;
+  while(EventExpired()==0 && to--);  
+  if (to<1)
+     printf("We have been here way too long big error \n");
   //printf ("Expired at %d  %d  %d %d\n",GetTick(),GetTickRTC(),rtc_clk_fast_freq_get(),rtc_clk_slow_freq_get());
   //printf("------ ee %d %d\n",super_epoch_start,EpochStart());
   // rtc_clk_cpu_freq_set(RTC_CPU_FREQ_240M);
+in_wait=0;
   return 1;
 }
-void   SMScheduler::ResetTime(int offset_ms)
+void   SMScheduler::ResetTime(int offset_ms,int epochCount)
 {
-  printf ("offset = %d\n",offset_ms);
  xTimerStop(sTimer,OS_TICK_PER_TICK);
  tick=offset_ms*OS_TICK_PER_TICK;
  tick_offset= rtc_time_get() -TORTC(offset_ms*OS_TICK_PER_TICK);
  cur_ts_low=offset_ms/TICK_PER_TS;
- super_epoch_start = 0;
- cur_ts_high = 0;
+ super_epoch_start = -epochCount;
+ cur_ts_high = epochCount;
  xTimerStart( sTimer, 0 );
 }
 int  SMScheduler::ScheduleEV( int (*cb)(void *), unsigned int time, void *data)
@@ -316,11 +328,28 @@ int SMScheduler::Init()
    user_sem = xSemaphoreCreateBinary();
    user_sem_done = xSemaphoreCreateBinary();
    wire_sem = xSemaphoreCreateMutex();
+   sleep_sem = xSemaphoreCreateCounting(10,0);
   // xSemaphoreTake(user_sem,portMAX_DELAY);
   // printf ("mutex = %x\n",(int)spi_mutex);
    return 1;
 }
 
+void SMScheduler::RequestNoSleep(char *process, uint8_t bf)
+  {
+   // strcpy(no_sleep_task,process);
+   if ((bf&bf_store))
+      printf("[SL]Error request already have %x %x\n",bf,bf_store);
+   bf_store |= bf;
+   xSemaphoreGive(sleep_sem);
+  }
+
+ void SMScheduler::ReleaseNoSleep(uint8_t bf)
+ {
+   if ((bf&bf_store)==0)
+      printf("[SL]Error release dont have %x %x\n",bf,bf_store);
+   bf_store &=~bf;
+   xSemaphoreTake(sleep_sem,1);
+ }
 
  uint8_t SMScheduler::spi_take(int to, int min_time, char *owner)
  {
@@ -353,8 +382,8 @@ int SMScheduler::Init()
 
  uint8_t SMScheduler::wire_take(int to, int min_time)
  {
-   if (xSemaphoreTake(wire_sem,portMAX_DELAY)==false)
-      printf("Semiphore error -------------------->");
+   if (xSemaphoreTake(wire_sem,1000)==false)
+      printf("Wire   --------------------------   Semiphore error -------------------->");
    return 1;
  }
  #include "Wire.h"

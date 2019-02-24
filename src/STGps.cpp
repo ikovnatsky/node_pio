@@ -4,6 +4,9 @@
 //#include "TinyGPS++.h"
 #include "/home/me/Documents/PlatformIO/Projects/node_pio/lib/TinyGPSPlus-1.0.2/src/TinyGPS++.h"
 
+#include "SMScheduler.h"
+extern SMScheduler sched;
+
 HardwareSerial MySerial(1);
 
 #include "STGps.h"
@@ -75,10 +78,17 @@ void STGps::displayInfo()
 
 void STGps::Enable(uint8_t en)
 {
+  // if we issued a wakeup to the gps dont change the power settings
+  if (did_wake_up)
+    {
+      // printf ("Waiting for gps dont sleep or wake  %d\n",sched.clock()-wake_time);
+      return;
+    }
   if (en)
     MySerial.print("$PMTK161,1*29\r\n");//$PMTK225,0*2B
-else 
+  else 
     MySerial.print("$PMTK161,0*28\r\n");//$PMTK225,0*2B
+    state=en;
 
 }
 void STGps::GPSTask(void * parameter)
@@ -87,49 +97,95 @@ void STGps::GPSTask(void * parameter)
   printf("Starting gps task \n");
   //while (1)
    vTaskDelay(100);
-  MySerial.print("$PMTK225,8*23");//$PMTK225,0*2B
-  MySerial.print("\r\n");
+  //MySerial.print("$PMTK225,8*23");//
+  //MySerial.print("$PMTK225,0*2B");
+ // MySerial.print("\r\n");
+  MySerial.print("$PMTK104*37");
+   MySerial.print("\r\n");
+ //MySerial.print("\r\n");
   p_gps->GPSTest();
+ 
 }
 
-void STGps::Process()
+uint8_t STGps::GPSSending()
 {
-     int b;
+  return (clock()-last_rx)<2;
+}
+#define MAX_AGE (60000)
+
+uint8_t STGps::Process()
+{
+    int b;
     int x=0;
+   // printf(".");
+   static int div;
+
+   if (div++>500)
+     {
+       printf ("GPS age = %d sched %d dw %d\n",location.age(),sched.in_wait,did_wake_up);
+       div=0;
+     }
 
     while ((b = MySerial.read())>=0)
         {
           encode(b);
-          printf("%c",b);
+          //if (did_wake_up)
+          //   printf("%c",b);
+          last_rx=clock();
         }
-    b = Serial.read();
-    if (b >= 0)
-      MySerial.write(b);
-    //{
-     // Serial.write(b);
-     //     if (encode(b))
-     //       displayInfo();
-    //}
-    //b = Serial.read();
-    //if (b >= 0)
-    //  MySerial.write(b);
-  
+    if ((location.age()>MAX_AGE || (location.isValid()==0) )&&(did_wake_up==0))
+       {
+        //MySerial.print("$PMTK225,8*23");//$PMTK225,0*2B
+        //Serial.print("\r\n");
+        //Enable(1);
+        printf("GPS Waking UP\n");
+        did_wake_up=1;
+        state=1;
+        wake_time= sched.clock();
+        if (no_sleep_requested==0)
+          {
+            sched.RequestNoSleep("GPS",0x4);
+            no_sleep_requested=1;
+          }
+
+       }
+
+    // if we woke up the gps and got a new location we are done
+    if (did_wake_up && (location.age()<MAX_AGE) && (location.age()>0) && (location.isValid()))
+        {
+         did_wake_up=0;
+        if (no_sleep_requested)
+          {
+            sched.ReleaseNoSleep(0x4);
+            no_sleep_requested=0;
+          }
+        //Enable(0);
+        printf("GPS can sleep UP\n");
+        }
+
+   /* if (did_wake_up && ((sched.clock()-wake_time)>MAX_AGE))
+       {
+         printf("gps did not wake up lets try agiain\n");
+         did_wake_up=0;
+       }*/
+  return 1;
 }
+
+
 void STGps::GPSTest()
 {
  
 
    int b;
 
+  Enable(1);
+  did_wake_up=1;
+  sched.RequestNoSleep("GPS",0x4);
+  no_sleep_requested=1;
   while (1)
   {
     int x=0;
-    b = MySerial.read();
-    if (b >= 0)
-        {
-          encode(b);
-        }
-    else
-       vTaskDelay(10);
+    Process();
+    vTaskDelay(10);
   }
-}
+}   

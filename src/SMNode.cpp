@@ -18,6 +18,7 @@ void SMNode::NodeInit()
   nConnectionId = -1;
   nTimeslot = -1;
   nGatewayId = -1;
+  panic =0;
 //  nDataTx = 0;
 //  nFailCnt = 0;
   connectState=NodeLookForBeacon;

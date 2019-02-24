@@ -42,6 +42,11 @@
 #include "STButtons.h"
 
 
+#include "SparkFunIMU.h"
+#include "SparkFunLSM303C.h"
+#include "LSM303CTypes.h"
+#include "STMotion.h"
+#include <LPS25HBSensor.h>
 
 
 const unsigned char bitmapAntenna [] PROGMEM=
@@ -101,6 +106,9 @@ STLed LedTop(0x60);
 //Thanos_MAX17055 charge_mon;
 MAX17055 charge_mon;
 STButtons buttons;
+STMotion motion;
+
+LPS25HBSensor *altimeter;
 
 
 void GetMac(unsigned char *mac)
@@ -202,7 +210,7 @@ int CalcPacketTime(int len)
  // return 0;
  int v;
  v= get_toa(len,7,125,1,1,1,8);
- printf("\nCalc len %d t %d\n",len,v);
+ //printf("\nCalc len %d t %d\n",len,v);
  return v;
   //return 21 + (len * 16) / 10;
 }
@@ -211,6 +219,57 @@ RTC_DATA_ATTR static time_t last;        // remember last boot in RTC Memory
 RTC_DATA_ATTR static uint32_t bootcount; // remember number of boots in RTC Memory
 #include "sys/time.h"
 struct timeval now;
+
+#include "driver/driver/rtc_io.h"
+#include <esp_wifi.h>
+#include <esp_deep_sleep.h>
+
+void LPTest2()
+{
+int x;
+  gettimeofday(&now, NULL);
+
+  printf("start ESP32 %d\n",bootcount++);
+/*
+  printf("deep sleep (%lds since last reset, %lds since last boot)\n",now.tv_sec,now.tv_sec-last);
+    esp_sleep_enable_timer_wakeup(1000000LL * GPIO_DEEP_SLEEP_DURATION);
+  Serial.printf("in light sleep\n");
+  esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_FAST_MEM,ESP_PD_OPTION_OFF);
+  esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_SLOW_MEM,ESP_PD_OPTION_OFF);
+  esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH,ESP_PD_OPTION_OFF);
+  esp_sleep_pd_config(ESP_PD_DOMAIN_MAX,ESP_PD_OPTION_OFF);
+  esp_wifi_stop();
+  //esp_bt_controller_disable();
+  //esp_bluedroid_disable();
+
+  esp_deep_sleep_pd_config(ESP_PD_DOMAIN_RTC_FAST_MEM,ESP_PD_OPTION_ON);
+  esp_deep_sleep_pd_config(ESP_PD_DOMAIN_RTC_SLOW_MEM,ESP_PD_OPTION_ON);
+  esp_deep_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH,ESP_PD_OPTION_ON);
+  esp_deep_sleep_pd_config(ESP_PD_DOMAIN_MAX,ESP_PD_OPTION_OFF);
+
+    //ESP.deepSleep(1000000LL * GPIO_DEEP_SLEEP_DURATION);
+*/
+/*
+esp_sleep_enable_ext0_wakeup(GPIO_NUM_32,1);
+rtc_gpio_hold_en(GPIO_NUM_12);
+rtc_gpio_hold_en(GPIO_NUM_1);
+rtc_gpio_hold_en(GPIO_NUM_16);
+//  esp_deep_sleep_pd_config(ESP_PD_DOMAIN_XTAL,ESP_PD_OPTION_OFF);
+  esp_sleep_pd_config(ESP_PD_DOMAIN_XTAL,ESP_PD_OPTION_ON);
+
+esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH,ESP_PD_OPTION_ON);
+//  esp_deep_sleep_start();
+  // esp_deep_sleep(1000000LL * GPIO_DEEP_SLEEP_DURATION);
+  */
+    esp_deep_sleep_pd_config(ESP_PD_DOMAIN_XTAL,ESP_PD_OPTION_OFF);
+  rtc_gpio_hold_en(GPIO_NUM_12);
+  rtc_gpio_hold_en(GPIO_NUM_32);
+  rtc_gpio_hold_en(GPIO_NUM_33);
+    esp_deep_sleep_start();//32 33
+rtc_gpio_hold_en(GPIO_NUM_16);
+    esp_light_sleep_start();
+    ESP.restart();
+}
 
 void LPTest()
 {
@@ -221,11 +280,13 @@ void LPTest()
 
   printf("deep sleep (%lds since last reset, %lds since last boot)\n",now.tv_sec,now.tv_sec-last);
 
+
+  //  printf("bat infor I %3.3f avgI %3.3f SOC %3.3f vc %3.3f rss %d \n",charge_mon.getCurrent_mA(),charge_mon.getAvgCurrent_mA(),charge_mon.getRepSOC(),charge_mon.getVoltageCell(),LoraHF.GetRssi());
   last = now.tv_sec;
 
     printf("Lora set to bed\n");
     LoraHF.SetSleep(1);
-    delay(2000);
+    delay(4000);
 //    Lora.SetSleep(1);
 
     gps.Enable(0);
@@ -237,19 +298,42 @@ void LPTest()
      }
     printf("Lora set to bed\n");
     Lora.SetPowerMode(POWER_OFF_RETAIN);
-    delay(2000);
+  //  delay(20);
     printf("Sleeping \n");
+/*
+   rtc_gpio_hold_en((gpio_num_t)LORA_TXEN);
+   rtc_gpio_hold_en((gpio_num_t)LORA_RXEN);
+    rtc_gpio_hold_en((gpio_num_t)LORA_RXEN);
+    
+    gpio_pullup_en((gpio_num_t)MISO);
+    rtc_gpio_hold_en((gpio_num_t)MISO);
 
+    rtc_gpio_hold_en((gpio_num_t)SCK);
 
-   esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH,ESP_PD_OPTION_ON);
+    gpio_pulldown_en((gpio_num_t)MOSI);
+    rtc_gpio_hold_en((gpio_num_t)MOSI);
+
+*/
+    /*gpio_pullup_en((gpio_num_t)GPS_TX_PIN);
+    gpio_pullup_en((gpio_num_t)CS_3);
+    rtc_gpio_hold_en((gpio_num_t)GPS_TX_PIN);
+   rtc_gpio_hold_en((gpio_num_t)GPS_RX_PIN);
+    rtc_gpio_force_hold_dis_all();
+*/
+
+   esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH,ESP_PD_OPTION_OFF);
+  // esp_deep_sleep(1000000LL * GPIO_DEEP_SLEEP_DURATION);
+  
+    esp_sleep_enable_timer_wakeup(1000000LL * GPIO_DEEP_SLEEP_DURATION);
+  Serial.printf("in light sleep\n");
+  delay(10);
+    esp_light_sleep_start();
  // DoReset();
- // esp_deep_sleep(1000000LL * GPIO_DEEP_SLEEP_DURATION);
+  Serial.printf("in deep sleep\n");
+  delay(10);
   //IOwriteRegister(TCA6408A_OUTPUT,0);
 
     //rtc_gpio_pullup_en();
-    esp_sleep_enable_timer_wakeup(1000000LL * GPIO_DEEP_SLEEP_DURATION);
-    esp_light_sleep_start();
-  Serial.printf("in deep sleep\n");
     ESP.restart();
 
 
@@ -276,9 +360,9 @@ for (auto const& i : theNode.HFBeaconList) {
     if (theNode.RangeResults.size()==theNode.rangeNumBeacons)
        break;
     printf("Range is %3.3f %d %x\n",d,cn,i.id);
-    sched.DoUI();
+    // sched.DoUI();
     }
-    LoraHF.SetSleep(1);
+     LoraHF.SetSleep(1);
     //LoraHF.RangeToSlave(0);
     sched.spi_give();
 
@@ -312,10 +396,8 @@ void OpMode()
     // schedule for the beacon
     // we could do this at the end to save an epoch
 
-    //printf("Waiting beacon %3.3f  %3.3f\n",charge_mon.getCurrent_mA(),charge_mon.getAvgCurrent_mA());
     sched.PrintTime("Wait B:-----------------------------------------------------------");
-    //printf("Waiting beacon %3.3f  %3.3f\n",charge_mon.getCurrent_mA(),charge_mon.getAvgCurrent_mA());
-    sleep_start=clock();
+    // we can sleep until its time for a beacon
     Lora.SetPowerMode(POWER_OFF_RETAIN);
     if (theNode.role!=ROLE_BEACON)
             LoraHF.SetSleep(1);
@@ -327,16 +409,11 @@ void OpMode()
     
     //listen during beacon time
     sched.SetEventTime(FREE_FOR_ALL_TS+10, 0, 0);
-    
-
-
     theNode.rxGatewayID = -1;
     while (!sched.EventExpired())
     {
       if (Lora.ReceivePacket(&LoraPkt) == 0)
         {
-        // if (Lora.PacketDetected()==0)
-        //    sched.DoUI();
         continue;
         }
       theNode.ProcessRxPack(&LoraPkt);
@@ -345,13 +422,12 @@ void OpMode()
       // must test iTs thE riGhT onE
       if (theNode.rxGatewayID>0)
           {
-            printf("Resetting time\n");
-            sched.ResetTime(CalcPacketTime(LoraPkt.nSize));
+            sched.ResetTime(CalcPacketTime(LoraPkt.nSize),theNode.rxEpoch);
             break;
           }
     }
 
-    printf("Gateway %d missed %d \n",theNode.rxGatewayID,missed_beacons);
+    //printf("Gateway %d missed %d \n",theNode.rxGatewayID,missed_beacons);
     if (theNode.rxGatewayID < 0)
       missed_beacons++;
     else
@@ -368,7 +444,8 @@ void OpMode()
       return;
     }
     
-    
+    // lets make sure its our epoch if not go back to looking
+    if (theNode.nTimeslot>>8!=theNode.rxEpoch)
     // wait a bit before we need to send
     //printf("Scheduling upstream at %d\n", theNode.nTimeslot & 0xff);
     sched.PrintTime("Done beacon");
@@ -376,38 +453,58 @@ void OpMode()
     sched.WaitUntil(theNode.nTimeslot & 0xff, 0, SEND_PREP_TIME);
     sched.PrintTime("Prep");
 
+
+/// this is where we build the packet to be sent upstream
     {
       unsigned char msg[64];
       int len=0;
       #define BAT_TRANSMIT_DIV 10
+      #define P_TRANSMIT_DIV 1
       static uint8_t bat_update_div=BAT_TRANSMIT_DIV;
+      static uint8_t p_update_div = P_TRANSMIT_DIV;
+
       if (gps.location.isValid())
         len += smessage_add_GPS(msg, gps.location.lng(), gps.location.lat(), gps.altitude.meters(), limit_ushort(gps.hdop.value()));
       
       for (auto ranges : theNode.RangeResults)
         len+= smessage_add_LORA_HF(&msg[len],ranges.id,ranges.dist);
 
-     // printf("bat update %d\n",bat_update_div);
+      if (theNode.panic)
+        len+= smessage_add_PANIC(&msg[len]);
+
+      if(1)
+      if (p_update_div--==0)
+        {
+        float press;
+        sched.wire_take(10);
+        altimeter->GetPressure(&press);
+        altimeter->GetPressure(&press);
+        sched.wire_give();
+        printf("\nPress = %3.3f\n",press);
+        len+= smessage_add_PRESSURE_HPA(&msg[len],press);
+        p_update_div=P_TRANSMIT_DIV;
+        }
       if (bat_update_div--==0)
            {
-            // printf ("Adding bat\n");
              len+=smessage_add_bat (&msg[len], charge_mon.getRepSOC());
              bat_update_div=BAT_TRANSMIT_DIV;
-            // printf ("done bat %d\n",len);
            }
         
       // add rssi
       theNode.BuildUpstreamMessage(&LoraPkt, 0, msg, len);
     }
 
+    // here is where we send the packet out
     Lora.LoraPrepSend(&LoraPkt);
     sched.WaitUntil    (theNode.nTimeslot & 0xff, 0, 0, TaskHandles[LoRaSendTaskNdx]);
     // send the packet during our slot
     sched.PrintTime("Sending ");
     Lora.LoraSend(&LoraPkt);
-     DumpByteData("sent Upstream ", LoraPkt.Buf, LoraPkt.nSize);
+    // DumpByteData("sent Upstream ", LoraPkt.Buf, LoraPkt.nSize);
+
+
     sched.DoUI();
-  #if 0 
+  #if 1
   if (theNode.role!=ROLE_BEACON)
   {
    printf("Hdop = %f %f\n",(float)gps.hdop.value(),theNode.configMinHdop);
@@ -451,7 +548,7 @@ void NodeTaskSpy(void *parameter)
     {
       printf("Got beacon ----------------> len = %d\n", LoraPkt.nSize);
       //   sched.PrintTime();
-      sched.ResetTime(CalcPacketTime(LoraPkt.nSize));
+      sched.ResetTime(CalcPacketTime(LoraPkt.nSize),theNode.rxEpoch);
       sched.PrintTime();
     }
     DumpByteData("Rx:", LoraPkt.Buf, LoraPkt.nSize);
@@ -595,6 +692,7 @@ void NodeTask(void *parameter)
           printf ("%d\n",cnt++);
           sched.spi_give();
        }
+  
   while(0)
   {
     DOHFRange();
@@ -638,7 +736,19 @@ void NodeTask(void *parameter)
 
 }
 
-#define VERSION "1.1.4"
+#define VERSION "1.2.2"
+
+
+void ScreenPowerOff()
+{
+  disp.fillScreen(0);
+  disp.setFont(&FreeSansBold9pt7b);
+  disp.setCursor(0, 15);
+  disp.println("Powered Off");
+  //disp.println(theNode.line2);
+    disp.changeImage();
+
+}
 
 /*************************************************************************
    DisplayTask
@@ -658,6 +768,9 @@ void ScreenMain()
   disp.setFont();
   disp.setCursor(140, 15);
   disp.println(String(theNode.nRSSI));
+  disp.setCursor(140, 2);
+  disp.print("ID:");
+  disp.println(String(theNode.nGatewayId));
   
   }
   disp.setCursor(170, 10);
@@ -684,7 +797,7 @@ void ScreenMain()
   disp.println(theNode.line1);
   disp.println(theNode.line2);
 
-  if (gps.time.isValid())
+  if (gps.time.isValid() && gps.location.isValid())
   {
     String ampm;
     int8_t hour = gps.time.hour() ;
@@ -966,13 +1079,13 @@ void DisplayTask(void *parameter) // Dispay Task
   {
     while (sched.disp_now==0)
        vTaskDelay(10);
-    sched.can_sleep=0;
     if (theNode.otaMode)
         {
          vTaskDelay(10);
          continue;
 
         }
+    sched.RequestNoSleep("Display",0x1);
     if (theNode.role==ROLE_NORMAL)
       {
       if (theNode.mode==MODE_NORMAL)
@@ -989,7 +1102,7 @@ void DisplayTask(void *parameter) // Dispay Task
     disp.changeImage();
 //     disp.updateImage();
     printf("display done  %d\n",clock()-t);
-    sched.can_sleep=1;
+    sched.ReleaseNoSleep(0x1);
     sched.disp_now=0;
   }
 }
@@ -1004,10 +1117,6 @@ void DoWaitBusy(void)
   }
 }
 
-#define CS_1 12
-#define CS_2 13
-#define CS_3 14
-#define CS_4 18
 void kbhit()
 {
   while(!Serial.available());
@@ -1038,16 +1147,42 @@ void WireGive(void)
 {
   sched.wire_give();
 }
+
+
+
+#define MIN_SOC_SHUTDOWN 5
+void  TestShutDown()
+{
+  int soc = charge_mon.get_SOC();
+  printf("Testing shutdown %d  %d\n",soc,charge_mon.GetUserMem());
+  if (soc<MIN_SOC_SHUTDOWN)
+    {
+      int shutdownDisplayed = charge_mon.GetUserMem();
+      if (shutdownDisplayed)
+         LPTest();
+      else
+         {
+           ScreenPowerOff();
+           shutdownDisplayed=1;
+           charge_mon.WriteUserMem(1);
+           LPTest();
+         }
+    }
+  else
+    charge_mon.WriteUserMem(0);
+}
+
+
 void setup()
 {
   // put your setup code here, to run once:
 
-  Serial.begin(921600);
+  //Serial.begin(921600);
+  Serial.begin(115200);
   while (!Serial);
 
   Serial.println("\n\nBooting Node");
   Serial.printf("Version %s %s\n",__DATE__,__TIME__);
-
   sched.Init();
 
   // i2c setup
@@ -1058,7 +1193,9 @@ void setup()
   IOwriteRegister(TCA6408A_CONFIG, ~(BIT_RESETn | BIT_MTR));
   IOwriteRegister(TCA6408A_OUTPUT,0);
   DoReset();
+  delay(100);
   
+  pinMode(34, INPUT);
   
   pinMode(PIN_AUDIO_SD,OUTPUT);
   digitalWrite(PIN_AUDIO_SD,LOW);
@@ -1087,15 +1224,20 @@ void setup()
         f.close();
         }
      }
+
+  charge_mon.begin();
+  charge_mon.forcedExitHiberMode();
+  disp.setup();
+  TestShutDown();
+  
   LoraHF.setup();
   
   gps.setup();
 
   Lora.setup();
-  
+   //LPTest();
 
-  disp.setup();
-  charge_mon.begin();
+
   buttons.setup();
 
   printf("chargemon %f ",charge_mon.getCurrent_mA());
@@ -1117,14 +1259,26 @@ void setup()
   //theNode.rangingAddress=0x32100000;    
   LoraHF.SetRangingAddress(theNode.rangingAddress+RANGE_ADDRESS_BASE);
   //LoraHF.SetRangingAddress(0x32100000);
-
+ 
+  motion.setup();
 
   while (0) 
   {
     DOHFRange();
     delay(100);
   }
+   altimeter= new LPS25HBSensor (&Wire);
+  altimeter->Enable();
+  altimeter->SetODR(25);
+while(0)
+{
 
+         float press;
+        sched.wire_take(10);
+        altimeter->GetPressure(&press);
+        sched.wire_give();
+        printf("\nPress = %3.3f\n",press);
+}
   xTaskCreatePinnedToCore(DisplayTask, "Display", 4000, NULL, DisplayPriority, &TaskHandles[DisplayHandle], CORE_1);
 
   // display initial screen
@@ -1152,7 +1306,7 @@ void setup()
   STdigitalWrite(PIN_MTR,0);
 
   xTaskCreatePinnedToCore(NodeTask, "LoRaSend", 11000, NULL, LoRaSendPriority, &TaskHandles[LoRaSendTaskNdx], CORE_1);
-  xTaskCreatePinnedToCore(gps.GPSTask, "GPS", 1000, (void *)&gps, GPSPriority, &TaskHandles[GPSHandle], CORE_1);
+  xTaskCreatePinnedToCore(gps.GPSTask, "GPS", 2000, (void *)&gps, GPSPriority, &TaskHandles[GPSHandle], CORE_1);
   xTaskCreatePinnedToCore(buttons.ButtonTask, "Button", 1800, (void *)&buttons, ButtonPriority, &TaskHandles[ButtonHandle], CORE_1);
 }
 
@@ -1163,7 +1317,7 @@ void loop()
   std::list<uint8_t> debug_mode({BUTTON_LEFT,BUTTON_BOTTOM,BUTTON_RIGHT});
   std::list<uint8_t> beacon_mode({BUTTON_LEFT,BUTTON_TOP,BUTTON_RIGHT});
 //printf("In loop\n");
-  xSemaphoreTake(sched.user_sem,portMAX_DELAY);
+  xSemaphoreTake(sched.user_sem,100);
   if ((sched.clock()-last_run)<100)
      return;
 //  printf("Buttons  %d %d\n",sched.clock(),sched.clock()-last_run);
@@ -1172,6 +1326,7 @@ void loop()
   if (buttons.key_list==debug_mode)
      {
        printf("Should enter debug\n");
+       sched.RequestScreenRefresh();
        theNode.mode=MODE_DEBUG;
        buttons.key_list.clear();
      }
@@ -1183,16 +1338,35 @@ void loop()
   if (buttons.long_push == BUTTON_TOP)
     {
       int x;
-        LedSide.set_color(COL_RED); 
+        LedSide.set_color(0); 
       STdigitalWrite(PIN_MTR,HIGH);
+      sched.RequestNoSleep("Sound",0x2);
       for (x=2000;x<6000;x+=200)
       {
       do_snd(x);
+      printf ("Doing sound %d\n",x);
       delay(100);
       }
       LedSide.set_color(0); 
       STdigitalWrite(PIN_MTR,0);
+      do_snd(0);
+      buttons.long_push=0;
+      sched.ReleaseNoSleep(0x2);
+      theNode.panic=1;
+      strcpy((char *)theNode.rxData,"ALERT1Panic");
     }
+  if (buttons.long_push == BUTTON_LEFT)
+  {
+       if (theNode.panic)
+         {
+        LedSide.set_color(0);
+      LedTop.set_color(0);
+      theNode.rxData[0] = 0;
+      alert_level=0;
+      theNode.panic=0;
+      sched.RequestScreenRefresh();
+      }
+  }
   if (buttons.long_push == BUTTON_BOTTOM)
   {
     printf("lp = %d\n", buttons.long_push);
@@ -1200,13 +1374,35 @@ void loop()
     {
       void ota_setup(void);
       theNode.stop = 1;
-      sched.can_sleep=0;
+       sched.RequestNoSleep("Ota",0x20);
       delay(1000);
       ota_setup();
     }
   }
 
-  printf("bat infor I %3.3f avgI %3.3f SOC %3.3f vc %3.3f rss %d \n",charge_mon.getCurrent_mA(),charge_mon.getAvgCurrent_mA(),charge_mon.getRepSOC(),charge_mon.getVoltageCell(),LoraHF.GetRssi());
+
+if (1)
+{
+  // this code keeps the soc monitor allive
+  charge_mon.getCurrent_mA();
+  charge_mon.getAvgCurrent_mA();
+  charge_mon.getRepSOC();
+  charge_mon.getVoltageCell();
+}
+ //printf("Avg I %3.3f vsum %3.3f\n",charge_mon.getAvgCurrent_mA(),motion.vsum);
+motion.Process();
+
+if (motion.IsActive())
+   printf("We have motion %3.3f %3.3f  %d\n",motion.vsum,motion.th,sched.in_wait);
+//if (Serial.read()>0)
+   {
+     uint8_t IOIntReset(void);
+   //printf("bat infor I %3.3f avgI %3.3f SOC %3.3f gps: %d %d\n",charge_mon.getCurrent_mA(),charge_mon.getAvgCurrent_mA(),charge_mon.getRepSOC(),gps.state
+    //, digitalRead(34));
+  if (digitalRead(34)==0)
+     printf("int reset 0x%x\n",IOIntReset());
+   }
+  
   if (charge_mon.getCurrent_mA()>-1)
      {
       if (charge_mon.getRepSOC()>=99)
@@ -1219,7 +1415,7 @@ void loop()
     if (alert_level==0)
       LedSide.set_color(0); 
   }
-  
+ 
   if (alert_level > 0)
   {
     uint8_t col;
@@ -1239,7 +1435,7 @@ void loop()
       STdigitalWrite(PIN_MTR,0);
       
       do_snd(2000);
-      sched.can_sleep=0;
+      sched.RequestNoSleep("Sound alert",0x8);
 
       }
     if (alrt_div==5)
@@ -1252,10 +1448,10 @@ void loop()
       STdigitalWrite(PIN_MTR,HIGH);
       alrt_div=0;
       do_snd(00);
-      sched.can_sleep=1;
+      sched.ReleaseNoSleep(0x8);
       }
 
-    if (alert_level && buttons.pressed)
+    if (alert_level && buttons.pressed && theNode.panic==0)
     {
       STdigitalWrite(PIN_MTR,0);
       LedSide.set_color(0);
@@ -1283,6 +1479,8 @@ extern "C" void app_main()
 {
   esp_err_t ret;
 // Initialize NVS.
+
+
 ret = nvs_flash_init_partition("nvs");
 ESP_LOGE("BOOT", "%s - nvs_flash_part() = %x", __func__, ret);
 ret = nvs_flash_init();

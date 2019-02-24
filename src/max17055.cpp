@@ -127,6 +127,37 @@ int error;
    }
 
 /**
+ * @brief      Writes a register.
+ *
+ * @param[in]  reg_addr  The register address
+ * @param[in]  reg_data  The register data
+ *
+ * @retval     0 on success
+ * @retval     non-0 for errors
+ */
+int MAX17055::writeReg_b(Registers_e reg, uint8_t value)
+{
+int error;
+	byte MSB = 0;
+	byte LSB = 0;
+	LSB = value & 0xFF;
+    
+    WireTake();
+	Wire.beginTransmission(addr);
+	Wire.write(reg);
+	Wire.write(LSB);
+	error = Wire.endTransmission();
+  if (error)
+    {
+    printf("Max error write %d \n",error);
+    Wire.flush();
+    }
+    WireGive();
+   return 0;
+   }
+
+
+/**
  * @brief      Reads from MAX17055 register.
  *
  * @param[in]  reg_addr  The register address
@@ -166,7 +197,7 @@ int32_t MAX17055::readReg(Registers_e reg, uint16_t &value)
       break;
     }
    // Wire.flush();
-    delay(1);
+   // delay(1);
 	error=Wire.requestFrom(addr, 2,true);
 	LSB = Wire.read();
 	MSB = Wire.read();
@@ -246,6 +277,7 @@ float MAX17055::getRepSOC(void)
 int soc=get_SOC();
 while (soc<F_SUCCESS_0)
   {
+      forcedExitHiberMode();
       printf("Int soc = %d\n",soc);
       soc=get_SOC();
   }
@@ -778,12 +810,17 @@ int MAX17055:: lsb_to_uvolts(uint16_t lsb)
 int MAX17055::raw_current_to_uamps(uint32_t curr, int rsense_value)
 {
     int res = curr;
+
     /* Negative */
     if (res & 0x8000) {
         res |= 0xFFFF0000;
-    } else {
-        res *= 1562500 /(rsense_value * 1000); //Change to interact with the rsense implemented in the design
-    }
+    } 
+    //else 
+    
+   // {
+    //    res *= 1562500 /(rsense_value * 1000); //Change to interact with the rsense implemented in the design
+   // }
+     res *= 156;
     return res;
 }
 
@@ -923,3 +960,17 @@ int MAX17055::avCurr_2_atRate()
     }
     return F_SUCCESS_0;
 }
+uint8_t MAX17055::GetUserMem(void)
+{
+    uint16_t val;
+    readReg(USER_MEM1,val);
+    printf("Read user mem %x\n",val);
+    return val&0xff;
+}
+
+    void MAX17055::WriteUserMem(uint8_t val)
+    {
+        uint16_t val2=val;
+        printf("wrote user mem %x\n",val);
+        writeReg(USER_MEM1,val2);
+    }

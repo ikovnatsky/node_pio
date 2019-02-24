@@ -136,9 +136,9 @@ void STLoraHF::setup()
 uint8_t STLoraHF:: SingleRangeToSlave (uint32_t id, uint8_t to, float &dist, int8_t &rssi)
 {
     LoraRadHF.SetRangingRequestAddress(id);
-    LoraRadHF.ClearIrqStatus(IRQ_RANGING_MASTER_RESULT_VALID);
+    LoraRadHF.ClearIrqStatus(IRQ_RADIO_ALL);
     LoraRadHF.SetTxParams(0, RADIO_RAMP_20_US);
-HFPacketStatus_t packetStatus ;
+    HFPacketStatus_t packetStatus ;
 
   //  LoraRadHF.SetTxContinuousWave();
    // while(1)
@@ -151,12 +151,12 @@ HFPacketStatus_t packetStatus ;
         vTaskDelay(1);
     if (to>0)
     {
+        LoraRadHF.GetPacketStatus(&packetStatus);
+        //printf("Ranging good to 0x%x to %d %d %f  snr %d %d\n",id,to,rssi,dist,packetStatus.LoRa.SnrPkt,packetStatus.LoRa.RssiPkt);
         dist = LoraRadHF.GetRangingResult(RANGING_RESULT_RAW);
         rssi=  LoraRadHF.GetRssiInst();
-
+        // printf("Irq = %x  %x\n",LoraRadHF.GetIrqStatus(),LoraRadHF.GetStatus());
         //int snr = LoraRadHF.Get
-        LoraRadHF.GetPacketStatus(&packetStatus);
-        printf("Ranging good to 0x%x to %d %d %f  snr %d %d\n",id,to,rssi,dist,packetStatus.LoRa.SnrPkt,packetStatus.LoRa.RssiPkt);
         return 1;
     }
     //printf("Ranging failed %x  %x\n",id,LoraRadHF.GetIrqStatus());
@@ -204,9 +204,16 @@ void STLoraHF::SetSleep(uint8_t en)
 {
     if (en)
       {
-          uint8_t sleep = 0;
+      uint8_t sleep = 0;
+      SleepParams_t sleepConfig ;
       LoraRadHF.SetStandby(STDBY_RC);
-          LoraRadHF.WriteCommand( RADIO_SET_SLEEP, &sleep, 1 );
+      sleepConfig.InstructionRamRetention=1;
+      sleepConfig.DataRamRetention=1;
+      sleepConfig.DataBufferRetention=1;
+
+      // for now we dont sleep need to implement the wakeup
+      //LoraRadHF.SetSleep( sleepConfig);
+    //LoraRadHF.WriteCommand( RADIO_SET_SLEEP, &sleep, 3);
 
       }
 }
