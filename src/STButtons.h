@@ -8,9 +8,10 @@
 
 #define BUTTON_LEFT 1
 #define BUTTON_RIGHT 2
-#define BUTTON_TOP  3
-#define BUTTON_BOTTOM 4
+#define BUTTON_TOP  4
+#define BUTTON_BOTTOM 8
 
+#define BUTTON_ANY 0xf
 
 
 #define KEY_LIST_LEN 3
@@ -31,5 +32,7 @@ class STButtons
     static void ButtonTask( void * param);
     void DoTask(void);
     void ProcessInput(void);
+    uint8_t GetKey(void);
+    uint8_t WaitKey(uint8_t k);
     list<uint8_t> key_list; 
 };

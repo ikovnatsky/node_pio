@@ -4,6 +4,7 @@
 #include <time.h> 
 
 #include "SMScheduler.h"
+#include "STio.h"
 extern SMScheduler sched;
 
 void STButtons::setup()
@@ -26,6 +27,8 @@ int switch_ids[]={BUTTON_LEFT,BUTTON_RIGHT,BUTTON_TOP,BUTTON_BOTTOM};
 
 void STButtons::ProcessInput(void)
 {
+
+#ifdef V1
     val = analogRead(PIN_BUTTONS);
     //
     
@@ -57,9 +60,64 @@ void STButtons::ProcessInput(void)
               pressed =0;
             }
         }
-      
+#endif
+#ifdef V2
     //vTaskDelay(100);
 
+    uint16_t v = IOReadInput();
+    //printf ("V= %x\n",v);
+    int id =  (v&0x100)==0 ? BUTTON_LEFT:0;
+    id |=    (v&0x200)==0 ? BUTTON_BOTTOM:0;
+    id |=    (v&0x400)==0 ? BUTTON_RIGHT:0;
+    id |=    (v&0x8000)==0 ? BUTTON_TOP:0;
+
+     if (id)     
+        {
+                    if (pressed!=id)
+                        {
+                            down_time=sched.clock();//clock();
+                            pressed=id;
+                        }
+                    printf("[BUT] %x %d\n",id,sched.clock()-down_time);
+                    if ((sched.clock()-down_time)>LONG_PRESS)
+                       {
+                            printf("[BUT] LP  %x %d\n",id,sched.clock()-down_time);
+                           long_push=id;
+                       }
+                
+        }
+    else
+        {
+           if (pressed!=0)
+            {
+              printf("Button released %x \n",v);
+              pushed=pressed;
+              key_list.push_back(pushed);
+              if (key_list.size()>KEY_LIST_LEN)
+                 key_list.pop_front();
+              pressed =0;
+            }
+        }
+#endif
+}
+
+uint8_t STButtons::WaitKey(uint8_t k)
+{
+    uint8_t p;
+    while (1)
+     {
+         ProcessInput();
+         if ((p=GetKey())&k)
+            break;
+         delay(100);
+     }
+    return p;
+}
+uint8_t STButtons::GetKey(void)
+{
+    uint8_t k = pushed;
+    pushed = 0;
+    return k;
 }
 void STButtons::DoTask()
 {
