@@ -5,7 +5,7 @@
 #include <string.h>
 SMNode::SMNode()
 {
-  
+  configChanged=0;
 }
 void SMNode::NodeInit()
 {
@@ -67,11 +67,13 @@ int SMNode::ProcessGrantMsg(unsigned char *p,int len)
    nTimeslot =  pMg->Timeslot;
   //pMg->TimeslotMask[0] = 0; //TBD
   //pMg->TimeslotMask[1] = 0; //TBD
+   nTimeslotMask = pMg->TimeslotMask;
    nChannel= pMg->nChannel;
    nConnectionId= pMg->ConnectionId;
    nGatewayId= rxGatewayID;
-   printf("GRanted SF: %d TS0: %d : Ch: %d CID %d\n",
-        nSpreadFactor, nTimeslot, nChannel,nConnectionId);
+   maxTimeSlotLen = 
+   printf("GRanted SF: %d TS0: %d : Ch: %d CID %d Len %x\n",
+        nSpreadFactor, nTimeslot, nChannel,nConnectionId,nTimeslotMask);
    connectState = NodeActive;
    configMinHdop = 1;
 
@@ -83,18 +85,67 @@ int SMNode::ProcessGrantMsg(unsigned char *p,int len)
 void DumpByteData(const char *cTitle, unsigned char *pData, int nLen);
 #include "SMScheduler.h";
 extern SMScheduler sched;
+int  SMNode:: ParseDownMessage(uint8_t *p, int len)
+{
+  int index=0;
+  while (index<len)
+  {
+  printf("Parsing cmd %x\n",p[index]);
+  switch (p[index])
+  {
+    case TAG_ALERT:
+
+                  alertLevel= STMsgAlert::ParseLevel(&p[index]);
+                  strcpy(alertText,STMsgAlert::ParseText(&p[index]).c_str());
+                  printf("\n\n--------------------------> Got allert %s\n",alertText);
+                  index+=STMsgAlert::ParseLen(&p[index]);
+                  break;
+
+    case TAG_SET_PARAM: 
+                      {
+                        String val;
+                        uint8_t id;
+                        uint8_t seq;
+                        id = STMsgSetParam::ParseId(p);
+                        val = STMsgSetParam::ParseValue(p);
+                        seq = STMsgSetParam::ParseSeq(p);
+                        printf("Got set %d %s  seq # %d \n",id,val.c_str(),seq);
+                        index+=p[index+2]+3;
+                        configChanged=1;
+                        switch(id)
+                          {
+                          case PARAM_LINE1: strcpy(line1,val.c_str());  sched.RequestScreenRefresh();break;
+                          case PARAM_LINE2: strcpy(line2,val.c_str()); sched.RequestScreenRefresh(); break;
+                          }
+
+                        // send the responce
+                        STMsgSetResp  p( id, "", seq);
+                        upstreamQ.push_back(p);
+
+                      }
+                      break;
+      default : printf ("Unknown down tag\n");return 0;
+  }
+  }
+  return 1;
+}
+
 int SMNode::ProcessDownMessage(unsigned char *p,int len)
 {
     NODE_DownData *downData = (NODE_DownData *)p;
+    uint8_t *payload;
+    payload = &p[sizeof(NODE_DownData)];
     
     printf("Got Downstream Data me %d for %d len:%d\n",nConnectionId,downData->ConnectionId,downData->payloadLen);
     DumpByteData("DS data:\n",&p[sizeof(NODE_DownData)],downData->payloadLen);
     if (downData->ConnectionId ==nConnectionId)
       {
-      memcpy(rxData,p+ sizeof(NODE_DownData),downData->payloadLen);
-      rxDataLen=downData->payloadLen;
+      //memcpy(rxData,p+ sizeof(NODE_DownData),downData->payloadLen);
+      //rxDataLen=downData->payloadLen;
+      printf("Parsing down message\n");
+      ParseDownMessage(payload, downData->payloadLen);
+      sched.RequestScreenRefresh();
       }
-    sched.RequestScreenRefresh();
 
     return sizeof(NODE_DownData)+downData->payloadLen;   
     
@@ -183,3 +234,34 @@ int SMNode::BuildUpstreamMessage(LORA_PKT *pkt, int nRSSI,unsigned char *payload
 
 }
 
+int SMNode::BuildUpstreamMessage(LORA_PKT *pkt, int nRSSI, int max_len)
+
+
+{
+  NODE_UpData *p = (NODE_UpData *) pkt->Buf;
+  int len = sizeof(NODE_UpData);
+
+  p->nMsgType=NodeUpData;
+  p->ConnectionId=nConnectionId;
+  p->nGATEWAYId=nGatewayId;
+
+  // we can add prioritization info here
+  // lets make sure the message is not too long if it is just dump it
+  if ((upstreamQ.empty()!=0) && (len+upstreamQ.front().Len()>max_len))
+     {
+       printf("[ERROR] Message too long to send \n");
+       upstreamQ.pop_front();
+     }
+  while ((upstreamQ.empty()==0) && (len+upstreamQ.front().Len()<=max_len))
+    {
+      len+=upstreamQ.front().CopyTo(&pkt->Buf[len]);
+      upstreamQ.pop_front();
+    }
+
+  
+  p->payloadLen=len-sizeof(NODE_UpData);
+  pkt->nSize= len;
+  return pkt->nSize;
+//  unsigned char Payload[MAX_NODE_DATA];
+
+}
