@@ -28,4 +28,6 @@ class STLora : public  SX126xHal
     int  statRXBad;
     PacketParams_t PacketParams;
     void SetFrequency(int val);
+    int CalcPacketTime(int len);
+    uint8_t CalcMaxPacket(int time_ms);
 };
