@@ -73,6 +73,7 @@ ModulationParams_t ModulationParams;
   SetRxTxFallbackMode(0x40);  //fallback to FS
   //LoRa.SetTxContinuousWave();
   //while(1);
+  SetRegulatorMode(USE_DCDC);
   
   digitalWrite(TXEN,LOW);
   digitalWrite(RXEN,HIGH);
@@ -91,7 +92,7 @@ void STLora::SetPowerMode(uint8_t mode)
    SleepParams_t sleepConfig;
   // return;
   printf("Lore power mode setting %d\n",mode);
-  sched.spi_take(10,10,"set sleep");
+  sched.spi_take(2,10,"set sleep");
   if (mode ==POWER_OFF_RETAIN)
   {
         digitalWrite(TXEN,LOW);
@@ -133,7 +134,7 @@ if (mode ==POWER_ON)
 uint8_t STLora::PacketDetected(void)
 {
     uint8_t iStat;
-    sched.spi_take(0,0,"Packet Detect");
+    sched.spi_take(10,0,"Packet Detect");
     iStat = GetIrqStatus();
     sched.spi_give();
     if (iStat&IRQ_PREAMBLE_DETECTED)
@@ -149,10 +150,10 @@ PacketStatus_t pktStatus;
 
     uint8_t iStat,len;
 
-     sched.spi_take(0,0,"Rx packet");
+     sched.spi_take(10,0,"Rx packet");
     rStat = GetStatus();
     iStat = GetIrqStatus();
-    //printf ("istat %x rstat %x\n",iStat,rStat);
+   // printf ("istat %x rstat %x\n",iStat,rStat);
    // if (rStat.Fields.CmdStatus==2)
     if (iStat&IRQ_RX_DONE)
        {
@@ -204,8 +205,8 @@ void  STLora::LoraPrepSend(LORA_PKT *pkt)
 {
   int m=clock();
   //printf("Trying to get sem \n");
- sched.spi_take(0,0,"Prep");
-m=clock()-m;
+ sched.spi_take(10,0,"Prep");
+ m=clock()-m;
 // printf("--------Waited %d %s\n",m,sched.spi_last_owner);
 }
 uint8_t STLora::LoraSend(LORA_PKT *pkt)
@@ -234,7 +235,7 @@ uint8_t STLora::LoraSend(LORA_PKT *pkt)
      while ((iStat&IRQ_TX_DONE)==0)
          {
           delay(1);
-          sched.spi_take(0,0,"tx stat");
+          sched.spi_take(10,0,"tx stat");
           iStat = GetIrqStatus();
           sched.spi_give();
           to--;
@@ -246,7 +247,7 @@ uint8_t STLora::LoraSend(LORA_PKT *pkt)
            //printf("wait to tx %x  %x\n",rStat.Fields.CmdStatus,iStat);
          }
 
-    sched.spi_take(0,0,"tx done");
+    sched.spi_take(10,0,"tx done");
 
     ClearIrqStatus(IRQ_TX_DONE);
      
@@ -256,4 +257,60 @@ uint8_t STLora::LoraSend(LORA_PKT *pkt)
     mode_rx=1;
     sched.spi_give();
     return 1;
+}
+
+
+
+int get_toa(int n_size, int n_sf, int n_bw, int enable_eh, int enable_crc, int n_cr, int n_preamble)
+{
+    float r_sym = (n_bw*1000.) / pow(2,n_sf);
+    float t_sym = 1000. / r_sym;
+    float t_preamble = (n_preamble + 4.25) * t_sym;
+    int v_CRC = 1;
+    int v_IH = 0;
+    int v_DE =0;
+    /* ldre
+    if enable_auto_ldro:
+        if t_sym > 16:
+            v_DE = 1
+    elif enable_ldro:
+        v_DE = 1
+    # IH
+    */
+   #define max(a,b) (a>b?a:b)
+    if (enable_eh==0)
+        v_IH = 1;
+    
+    if (enable_crc==0)
+        v_CRC = 0;
+    float a = 8.*n_size - 4.*n_sf + 28 + 16*v_CRC - 20.*v_IH;
+    float b = 4.*(n_sf-2.*v_DE);
+    float v_ceil = a/b;
+    float n_payload = 8 + max(ceil(a/b)*(n_cr+4), 0);
+    float t_payload = n_payload * t_sym;
+    float t_packet = t_preamble+ t_payload;
+    return t_packet + .5;
+}
+
+
+// return the time to in ms to transmit the packet
+int STLora::CalcPacketTime(int len)
+{
+ // return 0;
+ int v;
+ v= get_toa(len,7,125,1,1,1,8);
+ //printf("\nCalc len %d t %d\n",len,v);
+ return v;
+  //return 21 + (len * 16) / 10;
+}
+
+uint8_t STLora::CalcMaxPacket(int time_ms)
+{
+  int len =8;
+ // time_ms=160;
+  printf("[CALC] time we have %d ms \n",time_ms);
+  while (time_ms>CalcPacketTime(len))
+    len++;
+  printf("[CALC] Calced time = %d\n",len);
+  return len-1;
 }
