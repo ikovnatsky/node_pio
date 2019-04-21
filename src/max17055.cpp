@@ -50,7 +50,7 @@
 #include "Arduino.h"
 #include <Wire.h>
 
-void WireTake(void);
+void WireTake(char *who=NULL);
 void WireGive(void);
 
 #include "max17055.h"
@@ -111,7 +111,7 @@ int error;
    	MSB = (value >> 8) & 0xFF;
 	LSB = value & 0xFF;
     
-    WireTake();
+    WireTake("max 3");
 	Wire.beginTransmission(addr);
 	Wire.write(reg);
 	Wire.write(LSB);
@@ -142,7 +142,7 @@ int error;
 	byte LSB = 0;
 	LSB = value & 0xFF;
     
-    WireTake();
+    WireTake("max2");
 	Wire.beginTransmission(addr);
 	Wire.write(reg);
 	Wire.write(LSB);
@@ -184,7 +184,7 @@ int32_t MAX17055::readReg(Registers_e reg, uint16_t &value)
     }*/
     int error;
     byte MSB = 0;
-    WireTake();
+    WireTake("max");
 	byte LSB = 0;
     while(1)
     {
@@ -198,13 +198,19 @@ int32_t MAX17055::readReg(Registers_e reg, uint16_t &value)
     }
    // Wire.flush();
    // delay(1);
+    int to = Wire.getTimeOut();
+    Wire.setTimeOut(200);
+    int t = clock();
 	error=Wire.requestFrom(addr, 2,true);
+    if ((clock()-t)>2)
+        printf ("Time = %d  %d\n",clock()-t,to);
+	Wire.setTimeOut(to);
 	LSB = Wire.read();
 	MSB = Wire.read();
     value = (MSB << 8) | LSB;	
     if (error!=2)
       {
-          printf("Read %d bytes \n",error);
+          printf("Max Read %d bytes \n",error);
           WireGive();
           return F_ERROR_1;
       }
@@ -491,6 +497,11 @@ int MAX17055::get_temperature()
  *
  * @retval       HibCFG original value before forced Exit Hibernate mode *
  */
+uint16_t MAX17055::forcedHiberMode()
+{
+    writeReg(HIBCFG_REG, 0x890c); //disable hibernate mode
+  return 0;
+}
 uint16_t MAX17055::forcedExitHiberMode()
 {
     uint16_t hibcfg;

@@ -170,6 +170,7 @@ public:
         VEMPTY_REG                 = 0x3A, /*!< 0x39 */
         FSTAT_REG                  = 0x3D, /*!< 0x39 */
 
+        USER_MEM1                  = 0x40,
         QRTABLE30_REG              = 0x42, /*!< 0x39 */
         DQACC_REG                  = 0x45, /*!< 0x39 */
         DPACC_REG                  = 0x46, /*!< 0x39 */
@@ -304,7 +305,8 @@ public:
      * @brief       Forced Exit Hibernate Mode Function for MAX17055
      */
     uint16_t forcedExitHiberMode();// Hibernate spelling 
-    
+    uint16_t forcedHiberMode();
+
     /**
      * @brief       EZ Config Initialization function
      */
@@ -382,6 +384,8 @@ public:
 
 
     void begin();
+    uint8_t GetUserMem(void);
+    void WriteUserMem(uint8_t val);
     float getCurrent_mA(void);
     float getRepSOC(void);
     float getVoltageCell(void);
@@ -394,6 +398,7 @@ protected:
      * @brief      Writes to MAX17055 register.
      */
     int writeReg(const Registers_e reg_addr, uint16_t reg_data);
+    int writeReg_b(const Registers_e reg_addr, uint8_t reg_data);
 
 
     /**
@@ -407,7 +412,7 @@ protected:
 private:
 
    // I2C &m_i2cBus;        // I2C object
-   int addr;
+   uint8_t addr;
 
 };
 
