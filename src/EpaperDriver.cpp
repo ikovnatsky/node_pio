@@ -181,7 +181,7 @@ void EpaperDriver::drawFrame(const uint8_t pixels[],
 void EpaperDriver::drawLine(int row, const uint8_t pixels[],
 		uint32_t mapWhiteTo, uint32_t mapBlackTo, uint8_t border) {
 
-	sched.spi_take(0,10,"drawL");
+	sched.spi_take(1000,10,"drawL");
 	spiRawPair(0x70, 0x0A);
 	digitalWrite(chipSelectPin, LOW);
 	SPI.transfer(0x72);
@@ -246,7 +246,7 @@ void EpaperDriver::drawLine(int row, const uint8_t pixels[],
 
 
 void EpaperDriver::updateLine(int row, const uint8_t prevPix[], const uint8_t pixels[]) {
-	sched.spi_take(0,10,"ul");
+	sched.spi_take(1000,10,"ul");
 	spiRawPair(0x70, 0x0A);
 	digitalWrite(chipSelectPin, LOW);
 	SPI.transfer(0x72);
