@@ -30,5 +30,6 @@ class STLoraHF
     uint8_t RangeToBeacon(uint32_t id, int8_t reps, int8_t trys, float &dist);
     void SetRangingAddress(uint32_t add);
     int8_t GetRssi(void);
+    uint8_t SelfTest(void);
 
 };

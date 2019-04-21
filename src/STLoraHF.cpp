@@ -1,6 +1,8 @@
 #include "Arduino.h"
 #include "STLoraHF.h"
 #include "sx1280-hal.h"
+#include "SMScheduler.h"
+extern SMScheduler sched;
 
 HFRadioCallbacks_t HFRadioEvents =
 
@@ -147,8 +149,12 @@ uint8_t STLoraHF:: SingleRangeToSlave (uint32_t id, uint8_t to, float &dist, int
     LoraRadHF.SetTx((HFTickTime_t){RADIO_TICK_SIZE_1000_US, 0xFFFF});
    // vTaskDelay(10);
 
-    while (((LoraRadHF.GetIrqStatus() & IRQ_RANGING_MASTER_RESULT_VALID)==0) && --to)
-        vTaskDelay(1);
+    while (((LoraRadHF.GetIrqStatus() & IRQ_RANGING_MASTER_RESULT_VALID)==0) && to)
+        {
+         //   vTaskDelay(1);
+        sched.light_sleep(10);
+        to-=10;
+        }
     if (to>0)
     {
         LoraRadHF.GetPacketStatus(&packetStatus);
@@ -353,3 +359,12 @@ char STLoraHF ::CalcDistance( RANGE_RES_TYPE *RawRngResults, int RngResultIndex,
     printf( ": Rssi: %4.0f, Median: %5.1f, FEI: %f\r\n",  rssi, median, RngFei );
     return 0;
 }  
+
+
+uint8_t STLoraHF::SelfTest()
+ {
+     if (LoraRadHF.GetFirmwareVersion()==0)
+        return 1;
+  return 0;
+
+ }
