@@ -4,6 +4,37 @@
 #include "SMNode.h"
 extern SMNode theNode;
 
+void saveConfig(const char * filename)
+{
+  File file = SPIFFS.open(filename);
+
+    // Allocate the document on the stack.
+  // Don't forget to change the capacity to match your requirements.
+  // Use arduinojson.org/assistant to compute the capacity.
+  StaticJsonDocument<868> doc;
+
+  // Deserialize the JSON document
+  DeserializationError error = deserializeJson(doc, file);
+  if (error)
+    {
+        Serial.println(F("Failed to read file, using default configuration"));
+      //  return;
+    }
+
+  // Get the root object in the document
+  JsonObject rt = doc.as<JsonObject>();
+  file.close();
+  file = SPIFFS.open(filename,"w");
+  rt["assetName1"]=theNode.line1;
+  rt["assetName2"]=theNode.line2;
+  if (serializeJson(doc, file) == 0) {
+    Serial.println(F("Failed to write to file"));
+    }
+
+  // Close the file (File's destructor doesn't close the file)
+  file.close();
+}
+
 void loadConfiguration(const char *filename)
 {
   // Open file for reading
@@ -103,17 +134,29 @@ void loadConfiguration(const char *filename)
   else
      theNode.configRefresh =10;
 
-if (rt.containsKey("ledPWM"))
+ if (rt.containsKey("ledPWM"))
      theNode.ledPWM = rt["ledPWM"];
   else
      theNode.ledPWM =50;
 
+ if (rt.containsKey("pressureTime"))
+    theNode.pressTimer.SetPeriod(rt["pressureTime"]);
+
+ if (rt.containsKey("socTime"))
+    theNode.pressTimer.SetPeriod(rt["socTime"]);
+
+ if (rt.containsKey("fwServer"))
+    theNode.fwServer=((const char *)rt["fwServer"]);
+else
+    theNode.fwServer="s3.us-east-2.amazonaws.com";
+
+ if (rt.containsKey("fwImage"))
+    theNode.fwImage=((const char *)rt["fwImage"]);
+else
+    theNode.fwImage="/smc-tag-firmware-updater/tag_v2.bin";
 
 
   file.close();
-  
-
-
 }
 
 
