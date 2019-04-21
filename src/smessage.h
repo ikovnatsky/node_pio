@@ -5,6 +5,29 @@
 #define TAG_BLE_LONG       5
 #define TAG_LORA_HF        6
 #define TAG_SOC            7
+#define TAG_PANIC          8
+#define TAG_PRESSURE       9
+
+
+
+#define HPA_MIN 800
+#define HPA_MAX 1200
+int smessage_add_PRESSURE_HPA(unsigned char *msg, float hpa)
+{
+	unsigned short val;
+
+	val = (hpa-HPA_MIN)*65000.0/(HPA_MAX-HPA_MIN);
+  msg[0]=TAG_PRESSURE;
+	msg[1] = val&0xff;
+	msg[2] = (val>>8)*0xff;
+	return 3;
+
+}
+int smessage_add_PANIC (unsigned char *msg)
+{
+	msg[0]=TAG_PANIC;
+	return 1;
+}
 
 int smessage_add_SOC (unsigned char *msg, uint8_t soc)
 {
