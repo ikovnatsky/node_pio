@@ -13,3 +13,7 @@ uint8_t IOreadRegister(const uint8_t register_addr);
 bool IOwriteRegister(const uint8_t register_addr, const uint8_t value);
 void DoReset();
 
+void   IOConfig(void );
+uint8_t STdigitalRead(uint8_t a);
+uint16_t IOReadInput(void);
+
