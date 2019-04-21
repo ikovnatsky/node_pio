@@ -19,13 +19,15 @@ extern STGps gps;
 
 #endif
 
+#define FREQ 32.768
+
 int TOMS( int64_t rtc)
 {
-  return rtc/32.768;
+  return rtc/FREQ;
 }
 uint64_t TORTC( int ms)
 {
-  return ms*32.768;
+  return ms*FREQ;
 }
 int SMScheduler::clock()
 {
@@ -104,7 +106,7 @@ int SMScheduler::PrintTime(char *txt)
   EpochStart(); 
   if (txt==NULL)
      txt="";
-  printf("[TIME] %20s %d:%d  tick %d  sched at %d\n",txt,cur_ts_high,cur_ts_low,GetTick(),ev_time);
+  printf("[TIME]>%10d> %20s >%d:%d>  cur_tick >%d>  evant_at >%d\n",clock(),txt,cur_ts_high,cur_ts_low,GetTick(),ev_time);
   return 1;
 }
 
@@ -135,8 +137,8 @@ void SMScheduler::light_sleep(int time_ms)
     {
     esp_sleep_enable_timer_wakeup(min(time_ms*1000,MAX_SLEEP));
     DoUI();
-    wire_take(10);
-    esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH,ESP_PD_OPTION_ON);
+    wire_take(20,"ls");
+    //esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH,ESP_PD_OPTION_ON);
     esp_light_sleep_start();
     wire_give();
     time_ms-= min(time_ms,MAX_SLEEP/1000);
@@ -159,9 +161,17 @@ int SMScheduler::WaitEventTime(TaskHandle_t  taskId)
 {
   // should be implemented with an rtos wait
    if (uxSemaphoreGetCount(sleep_sem)!=0)
+        {
         printf("[SL]Sorry Cant sleep %x\n",bf_store);
+        }
 
+ if ((ev_time-GetTick())>200000)
+      {
+        printf("[ERROR]  Too long of a sleep \n");
+        return 1;
+      }
 in_wait=1;
+int entry_tic = GetTick();
 while(1)
 {
   //if ( ((ev_time-GetTick())>MIN_DISP) && disp_request)
@@ -176,16 +186,18 @@ while(1)
         int sleeptime = ev_time-GetTick()-4;
         uint64_t now;
         now=rtc_time_get();
-        sleeptime=(sleeptime) *1000;
         //printf("light_sleep enter: %d %d\n",sleeptime,clock());
         DoUI();   
         if (uxSemaphoreGetCount(sleep_sem)==0)
            {
+          sleeptime=((ev_time-GetTick()-1)*1000);// sleep time is in us
+        
+        
            esp_sleep_enable_timer_wakeup(min(sleeptime,MAX_SLEEP)); 
            taskYIELD();
-           wire_take(10);
-           esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH,ESP_PD_OPTION_ON);
-
+           if (wire_take(20,"sl2")==0)
+               printf("in sleep\n");
+          // esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH,ESP_PD_OPTION_ON);
            int ret = esp_light_sleep_start();
            wire_give();
            }
@@ -217,7 +229,9 @@ int to=1000000;
   //printf ("Expired at %d  %d  %d %d\n",GetTick(),GetTickRTC(),rtc_clk_fast_freq_get(),rtc_clk_slow_freq_get());
   //printf("------ ee %d %d\n",super_epoch_start,EpochStart());
   // rtc_clk_cpu_freq_set(RTC_CPU_FREQ_240M);
-in_wait=0;
+  if ((GetTick()-ev_time)>1)
+        printf("[ERROR]We missed this by %d here %d\n",(GetTick()-ev_time),GetTick()-entry_tic);
+  in_wait=0;
   return 1;
 }
 void   SMScheduler::ResetTime(int offset_ms,int epochCount)
@@ -355,8 +369,8 @@ void SMScheduler::RequestNoSleep(char *process, uint8_t bf)
  {
   // printf("Take ..");
   int x = 10;
-   int err =xSemaphoreTake(spi_mutex,1000);
-   if (err==0)
+   int err =xSemaphoreTake(spi_mutex,to);
+   if (err!=pdTRUE)
       {
         printf("[SPI]Could not obtain spi lock %s, %s owned by %s\n",owner,pcTaskGetTaskName(xTaskGetCurrentTaskHandle()),spi_owner);
 
@@ -380,10 +394,15 @@ void SMScheduler::RequestNoSleep(char *process, uint8_t bf)
    return 1;
 }
 
- uint8_t SMScheduler::wire_take(int to, int min_time)
+ uint8_t SMScheduler::wire_take(int to, char *who, int min_time)
  {
-   if (xSemaphoreTake(wire_sem,1000)==false)
-      printf("Wire   --------------------------   Semiphore error -------------------->");
+   if (xSemaphoreTake(wire_sem,to)!=pdTRUE)
+      {
+        printf("Wire   --------------------------   Semiphore error %d %s\n",to,wire_last_owner);
+        return 0;
+      }
+   if (who)
+    strcpy(wire_last_owner,who);
    return 1;
  }
  #include "Wire.h"

@@ -20,7 +20,7 @@ class  SMScheduler
 public:
  SMScheduler();
  int  Init();
- void ResetTime(int offset_ms);
+ void ResetTime(int offset_ms, int epochCount=0);
  int  GetTick();
  int  GetTickRTC();
  int  EpochStart();
@@ -50,7 +50,10 @@ public:
  void light_sleep(int time_ms);
  void DoUI(void);
  void RequestScreenRefresh();
- 
+ void RequestNoSleep(char *process,uint8_t bf);
+ void ReleaseNoSleep(uint8_t bf);
+ uint8_t bf_store=0;
+ char no_sleep_task[20];
  int  ScheduleEV(int (*cb)(void *), unsigned int time, void *data);
  SchedEvent evs[MAX_EVS];
   int ev_time;
@@ -62,14 +65,17 @@ public:
  SemaphoreHandle_t user_sem;
  SemaphoreHandle_t user_sem_done;
  SemaphoreHandle_t wire_sem;
+ SemaphoreHandle_t sleep_sem;
 
 
  
- uint8_t wire_take(int to, int min_time=0);
+ uint8_t wire_take(int to, char *who=NULL, int min_time=0);
+  char wire_last_owner[20];
  uint8_t wire_give();
  
  int PrintTime(char *txt=NULL);
  uint8_t disp_request;
  uint8_t disp_now;
  uint8_t can_sleep;
+ uint8_t in_wait =0;
 };
