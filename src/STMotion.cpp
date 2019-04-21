@@ -25,16 +25,16 @@ void STMotion:: setup()
     Serial.println("Failed setup.");
     while(1);
   }
-   sched.wire_take(10);
+  // sched.wire_take(10);
    acc_avg[0]=myIMU.readAccelX();
    acc_avg[1]=myIMU.readAccelY();
    acc_avg[2]=myIMU.readAccelZ();
-   sched.wire_give();
+   //sched.wire_give();
 }
 
 void STMotion ::Process()
 {
-   sched.wire_take(10);
+  // sched.wire_take(10);
    float v;
    v = myIMU.readAccelX();
    if (isnormal(v))
@@ -46,7 +46,7 @@ void STMotion ::Process()
    if (isnormal(v))
         acc_vec[2]=v;
 
-   sched.wire_give();
+   //sched.wire_give();
   
   for (int x=0;x <3;x++)
         acc_avg[x] = acc_avg[x]*.7+acc_vec[x]*.3;
@@ -55,7 +55,11 @@ void STMotion ::Process()
                vsum+=(acc_avg[v]-acc_vec[v])*(acc_avg[v]-acc_vec[v]);
    vsum=(float)sqrt((float)vsum);
    if (isnormal(vsum)==0)
-      printf("Vsum is nuts %3.3f %3.3f %3.3f\n",acc_avg[0],acc_avg[1],acc_avg[2]);
+      {
+           printf("Vsum is nuts %3.3f %3.3f %3.3f\n",acc_avg[0],acc_avg[1],acc_avg[2]);
+           acc_avg[0]=0;acc_avg[1]=0;acc_avg[2]=0;
+      }
+
    if (vsum>th)
      state=STATE_WALKING;
    else
