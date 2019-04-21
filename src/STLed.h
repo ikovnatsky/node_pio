@@ -3,6 +3,7 @@
 #define COL_BLUE 2
 #define COL_GRN  4
 #define COL_MAG  (COL_RED |COL_BLUE)
+#define COL_WHT  (COL_RED |COL_BLUE|COL_GRN)
 #define COL_ON   0x10
 
 #define INPUT0  0x00
@@ -23,7 +24,10 @@ class STLed
     void setup(void);
     void set_color(uint8_t col);
     void RegWrite(uint8_t addra, uint8_t v);
+    void ColWrite(uint8_t *c);
     void SetPWM(int val);
     uint8_t address;
+    uint8_t cur_col;
+    uint8_t get_col(void);
 };
 
