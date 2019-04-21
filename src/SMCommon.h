@@ -44,7 +44,7 @@ typedef struct {
   unsigned short ConnectionId;        // ConnectionId
   unsigned char nSpreadFactor;
   unsigned short Timeslot;      // Timeslot
-  unsigned char TimeslotMask[2];  // Timeslot Mask ??? TBD
+  unsigned short TimeslotMask;  // Timeslot Mask ??? TBD
   unsigned char nChannel;
 } GATEWAY_MsgGrant;
 
@@ -93,3 +93,6 @@ typedef struct {
   unsigned char ConnectionId[2];        // ConnectionId
 } NODE_HDR;
 #endif
+
+
+#define TIMESLOT_MS 10
