@@ -1,6 +1,26 @@
+/*************************************************** 
+  Compliance test command line interface
+
+  File: cmd_line.cpp
+  Version: 1.0
+  Date: April 2019
+
+  With help from https://github.com/espressif/esp-idf/tree/master/examples/system/console
+
+  Written by christian@eeproto.com for David Freed
+ ****************************************************/
+
 #include "cmd_line.h"
 
-#define CMD_LINE_UART_NUMBER UART_NUM_0
+RadioCallbacks_t RadioEvents;
+PacketParams_t PacketParams;
+SX126xHal lora(1, 2, 3, 4, 5, 6, NC, NC, NC, NC, NC, NC,&RadioEvents);
+unsigned char send_buffer[MAX_LORA_PKT];
+
+
+//
+// Command line prompt as a task function
+//
 
 void cmdLineTaskSerialPrompt(void *pvParameter)
 {
@@ -56,7 +76,10 @@ void cmdLineTaskSerialPrompt(void *pvParameter)
     }
 } // end serialPrompt
 
-/* 'version' command */
+
+//
+// Version command
+//
 int getVersion(int argc, char **argv)
 {
     esp_chip_info_t info;
@@ -87,6 +110,9 @@ void registerVersion()
     ESP_ERROR_CHECK( esp_console_cmd_register(&cmd) );
 }
 
+//
+// LoRa commands
+//
 static struct {
     struct arg_str *setting;
     struct arg_int *arg;
@@ -111,8 +137,22 @@ static int processLoraCommand(int argc, char **argv)
         const char* setting = lora_args.setting->sval[0];
         if ( strncmp(setting, "freq", 4) == 0 ) {
             printf("setting LoRa frequency to %d Hz.\n", arg);
+            //LoRa.SetFrequency(arg);
         } else if ( strncmp(setting, "bw", 4) == 0 ) {
             printf("setting LoRa bandwidth to %d kHz.\n", arg);
+        } else if ( strncmp(setting, "send", 1) == 0 ) {
+            printf("[Test] sending.\n");
+            loraSend();
+        } else if ( strncmp(setting, "test", 1) == 0 ) {
+            RadioStatus_t rStat = lora.GetStatus();
+            printf("[Test] status val=%d res=%d cmd=%d chip=%d cpu=%d\n", 
+                rStat.Value, rStat.Fields.Reserved, rStat.Fields.CmdStatus, rStat.Fields.ChipMode, rStat.Fields.CpuBusy);
+            RadioError_t e = lora.GetDeviceErrors();
+            printf("error val=%d rc64=%d rc13=%d pll=%d adc=%d img=%d xos=%d lock=%d buck=%d\n", 
+                e.Value, e.Fields.Rc64kCalib, e.Fields.Rc13mCalib, e.Fields.PllCalib, e.Fields.AdcCalib, e.Fields.ImgCalib, e.Fields.XoscStart, e.Fields.PllLock, e.Fields.BuckStart, e.Fields.PaRamp);
+            printf("operating mode %d\n", lora.GetOperatingMode());
+            lora.CheckDeviceReady();
+            printf("operating mode %d\n", lora.GetOperatingMode());
         } else {
             printf("unknown setting %s\n", setting);
         }        
@@ -144,7 +184,7 @@ static int processLoraHFCommand(int argc, char **argv)
         const char* setting = lora_args.setting->sval[0];
         if ( strncmp(setting, "freq", 4) == 0 ) {
             printf("setting LoRaHF frequency to %d Hz.\n", arg);
-        } else if ( strncmp(setting, "bw", 4) == 0 ) {
+        } else if ( strncmp(setting, "bw", 2) == 0 ) {
             printf("setting LoRaHF bandwidth to %d kHz.\n", arg);
         } else {
             printf("unknown setting %s\n", setting);
@@ -226,6 +266,11 @@ static void registerLoraHFCommand()
     ESP_ERROR_CHECK( esp_console_cmd_register(&cmd) );
 }
 
+
+//
+// UART configuration for the command line
+//
+
 void cmdLineInitUart()
 {
     /* Disable buffering on stdin */
@@ -275,6 +320,7 @@ void cmdLineInitUart()
     linenoiseHistorySetMaxLen(100);
 } // end inituart
 
+
 void cmdLineInit()
 {
     // configure uart
@@ -286,3 +332,104 @@ void cmdLineInit()
     registerLoraCommand();
     registerLoraHFCommand();
 } // end init
+
+
+void loraInit()
+{
+    // chip select pins
+    pinMode(LORA_CS, OUTPUT);
+    pinMode(LORAHF_CS, OUTPUT);
+    pinMode(DISPLAY_CS, OUTPUT);
+
+    // chip select LoRa
+    digitalWrite(LORA_CS, LOW);
+    digitalWrite(LORAHF_CS, HIGH);
+    digitalWrite(DISPLAY_CS, HIGH);
+
+    lora.RadioNss = LORA_CS;
+    lora.RadioSpi = &SPI;
+
+    pinMode(SS, OUTPUT);
+    pinMode(LORA_TXEN,OUTPUT);
+    pinMode(LORA_RXEN,OUTPUT);
+    digitalWrite(LORA_TXEN,LOW);
+    digitalWrite(LORA_RXEN,HIGH);
+
+    // start lora module
+    lora.Init();
+    lora.SetStandby( STDBY_XOSC );
+    lora.ClearIrqStatus( IRQ_RADIO_ALL );
+
+    ModulationParams_t ModulationParams;
+    ModulationParams.PacketType = PACKET_TYPE_LORA;
+    ModulationParams.Params.LoRa.SpreadingFactor = LORA_SF7;
+    ModulationParams.Params.LoRa.Bandwidth       = LORA_BW_125;
+    ModulationParams.Params.LoRa.CodingRate      = LORA_CR_4_5;
+    lora.SetPacketType( ModulationParams.PacketType );
+    lora.SetModulationParams( &ModulationParams );
+
+    PacketParams.PacketType     = PACKET_TYPE_LORA;
+    PacketParams.Params.LoRa.PreambleLength      =   8;                            
+    PacketParams.Params.LoRa.HeaderType          = LORA_PACKET_EXPLICIT;
+    PacketParams.Params.LoRa.PayloadLength       = 12;
+    PacketParams.Params.LoRa.CrcMode             = LORA_CRC_ON;
+    PacketParams.Params.LoRa.InvertIQ            = LORA_IQ_NORMAL;
+    lora.SetPacketParams( &PacketParams );
+  
+    lora.SetRfFrequency(915000000 );
+    lora.SetBufferBaseAddresses( 0x00, 0x00 );
+
+    lora.SetTxParams(22, RADIO_RAMP_200_US );
+    lora.SetRxTxFallbackMode(0x40);  //fallback to FS
+    //LoRa.SetTxContinuousWave();
+    //while(1);
+    
+    lora.SetRegulatorMode(USE_DCDC);
+    digitalWrite(LORA_TXEN,LOW);
+    digitalWrite(LORA_RXEN,HIGH);
+    lora.SetDioIrqParams( IRQ_RX_DONE|IRQ_TX_DONE|IRQ_PREAMBLE_DETECTED|IRQ_CRC_ERROR, IRQ_RADIO_NONE, IRQ_RADIO_NONE, IRQ_RADIO_NONE );
+
+    // power up, nss low is active chip select
+    lora.RadioNssSet(0);
+    lora.RadioNssSet(1);
+    lora.RadioNssSet(0);  
+    delay(1);
+    lora.SetStandby(STDBY_RC);
+    digitalWrite(LORA_TXEN,LOW);
+    digitalWrite(LORA_RXEN,HIGH);
+    delay(100);
+    printf("lora setup done, chip mode %d.\n", lora.GetStatus().Fields.ChipMode);
+} // end lorainit
+
+void loraSend()
+{
+    int payload_length = 8;
+
+    digitalWrite(LORA_TXEN, HIGH);
+    digitalWrite(LORA_RXEN, LOW);
+
+    PacketParams.Params.LoRa.PayloadLength = payload_length;
+    lora.SetPacketParams( &PacketParams );
+
+    lora.SetPayload(send_buffer, payload_length);
+    lora.SetTx(0);
+
+    uint16_t iStat = lora.GetIrqStatus();
+    RadioStatus_t rStat = lora.GetStatus();
+    int timeout = 100;
+    while ((iStat&IRQ_TX_DONE)==0 && (timeout>0))
+    {
+        delay(1);
+        iStat = lora.GetIrqStatus();
+        timeout--;
+        printf("wait to tx %x  %x\n",rStat.Fields.CmdStatus,iStat);
+    }
+    if (timeout==0)
+    {
+        printf("Timeout sending\n");
+    }
+
+    digitalWrite(LORA_TXEN, LOW);
+    digitalWrite(LORA_RXEN, HIGH);
+    lora.SetRx(0xffffff);
+} // end lorasend
